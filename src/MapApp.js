@@ -1,6 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import './MapApp.css';
 
+
+
 const MapApp = () => {
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
@@ -67,10 +69,25 @@ const MapApp = () => {
         const map = window.L.map(mapRef.current).fitBounds(bounds);
         mapInstanceRef.current = map;
 
-        window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-          attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-          maxZoom: 19
-        }).addTo(map);
+        window.L.tileLayer(
+          'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+          {
+            attribution:
+              'Tiles © Esri — Source: Esri, Maxar, Earthstar Geographics',
+            maxZoom: 19
+          }
+        ).addTo(map);
+        // Parse URL parameter
+        const params = new URLSearchParams(window.location.search);
+        const lat = parseFloat(params.get('lat'));
+        const lng = parseFloat(params.get('lng'));
+
+        if (!isNaN(lat) && !isNaN(lng)) {
+          const marker = window.L.marker([lat, lng]).addTo(map);
+          marker.bindPopup(`Koordinat: ${lat}, ${lng}`).openPopup();
+          map.setView([lat, lng], 12);
+        }
+
 
         window.L.control.scale({ imperial: false, metric: true }).addTo(map);
 
@@ -90,23 +107,11 @@ const MapApp = () => {
           geometry: {
             type: 'Polygon',
             coordinates: [[
-              [111.0, -8.8],
-              [111.5, -8.5],
-              [112.0, -8.3],
-              [112.5, -8.2],
-              [113.0, -8.1],
-              [113.5, -8.0],
-              [114.0, -7.8],
-              [114.4, -7.5],
-              [114.5, -7.2],
-              [114.3, -6.9],
-              [113.8, -7.0],
-              [113.0, -7.2],
-              [112.5, -7.5],
-              [112.0, -7.8],
-              [111.5, -8.2],
-              [111.0, -8.5],
-              [111.0, -8.8]
+              [110.5, -9.0],  // southwest
+              [115.5, -9.0],  // southeast
+              [115.5, -6.5],  // northeast
+              [110.5, -6.5],  // northwest
+              [110.5, -9.0]   // close the polygon
             ]]
           }
         };
@@ -329,6 +334,7 @@ const MapApp = () => {
       });
     }
   };
+  
 
   // Apply filters
   useEffect(() => {
