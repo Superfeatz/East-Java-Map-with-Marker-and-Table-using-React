@@ -74,7 +74,8 @@ const MapApp = () => {
           {
             attribution:
               'Tiles © Esri — Source: Esri, Maxar, Earthstar Geographics',
-            maxZoom: 19
+            maxZoom: 20,
+            maxNativeZoom: 18
           }
         ).addTo(map);
         // Parse URL parameter
@@ -92,7 +93,7 @@ const MapApp = () => {
         window.L.control.scale({ imperial: false, metric: true }).addTo(map);
 
         const markerCluster = window.L.markerClusterGroup({
-          maxClusterRadius: 50,
+          maxClusterRadius: 30,
           spiderfyOnMaxZoom: true,
           showCoverageOnHover: false,
           zoomToBoundsOnClick: true
