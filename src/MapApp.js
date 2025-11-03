@@ -14,15 +14,66 @@ const MapApp = () => {
   const [invalidCount, setInvalidCount] = useState(0);
   
   const [searchTerm, setSearchTerm] = useState('');
-  const [siteTypeFilter, setSiteTypeFilter] = useState('all');
-  const [tenantFilter, setTenantFilter] = useState('all');
-  const [serviceFilter, setServiceFilter] = useState('all');
-  
-  const [siteTypes, setSiteTypes] = useState([]);
-  const [tenants, setTenants] = useState([]);
-  const [serviceClasses, setServiceClasses] = useState([]);
   
   const [message, setMessage] = useState({ text: '', type: '' });
+
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [towerIdFilter, setTowerIdFilter] = useState('');
+  const [siteIdFilter, setSiteIdFilter] = useState('');
+  const [operatorFilter, setOperatorFilter] = useState('');
+
+  const [newData, setNewData] = useState({
+    site_id: "",
+    latitude: "",
+    longitude: ""
+  });
+
+  const handleAddData = () => {
+  const { site_id, latitude, longitude } = newData;
+
+  if (!site_id || !latitude || !longitude) {
+    setMessage({ text: "⚠️ Lengkapi semua field sebelum menambah data.", type: "warning" });
+    return;
+  }
+
+  const lat = parseFloat(latitude);
+  const lon = parseFloat(longitude);
+
+  if (isNaN(lat) || isNaN(lon)) {
+    setMessage({ text: "⚠️ Latitude dan Longitude harus berupa angka.", type: "warning" });
+    return;
+  }
+
+  // Validasi koordinat
+  if (lat < -90 || lat > 90 || lon < -180 || lon > 180) {
+    setMessage({ text: "⚠️ Koordinat tidak valid.", type: "error" });
+    return;
+  }
+
+  // Buat marker baru
+  const newMarkerData = {
+    "Site ID": site_id,
+    "latitude_decimal": lat,
+    "longitude_decimal": lon,
+    "Site Name Actual": "Manual Entry",
+    "City": "-",
+    "Address": "-",
+  };
+
+  const marker = window.L.marker([lat, lon])
+    .bindPopup(`<b>${site_id}</b><br>Lat: ${lat}<br>Lon: ${lon}`)
+    .addTo(mapInstanceRef.current);
+
+    // Tambahkan ke state
+    setAllData((prev) => [...prev, newMarkerData]);
+    setFilteredData((prev) => [...prev, newMarkerData]);
+    setAllMarkers((prev) => [...prev, marker]);
+
+    setMessage({ text: `✅ Data ${site_id} berhasil ditambahkan.`, type: "success" });
+
+    // Reset form
+    setNewData({ site_id: "", latitude: "", longitude: "" });
+  };
 
   // Load Leaflet and dependencies
   useEffect(() => {
@@ -176,7 +227,6 @@ const MapApp = () => {
       { key: 'Tower Owner', label: 'Pemilik Tower' },
       { key: 'Name Of Tenant', label: 'Operator' },
       { key: 'Site Type', label: 'Tipe Lokasi' },
-      { key: 'Class Of Service', label: 'Kelas Layanan' },
       { key: 'Tenant Rental Price/Month', label: 'Harga Sewa/Bulan' },
       { key: 'Tenant Start Lease', label: 'Mulai Sewa' },
       { key: 'Tenant End Lease', label: 'Akhir Sewa' }
@@ -193,13 +243,33 @@ const MapApp = () => {
         value = 'Rp ' + parseFloat(value).toLocaleString('id-ID');
       }
       
-      if ((field.key.includes('Lease') || field.key.includes('Date')) && value !== '-') {
-        try {
-          value = new Date(value).toLocaleDateString('id-ID');
-        } catch (e) {
-          // Keep original value if date parsing fails
-        }
+      if ((field.key.includes('Lease') || field.key.includes('Date')) && value && value !== '-') {
+        // Pisahkan jika ada banyak tanggal dalam satu string
+        const dateParts = value.split(',').map(v => v.trim()).filter(Boolean);
+
+        const formattedParts = dateParts.map(part => {
+          // Hilangkan jam seperti "00:00:00"
+          const cleaned = part.replace(/(\s*\d{2}:\d{2}:\d{2})/, '').trim();
+
+          // Coba parse tanggalnya
+          const parsed = new Date(cleaned);
+          if (!isNaN(parsed.getTime())) {
+            return parsed.toLocaleDateString('id-ID', {
+              day: '2-digit',
+              month: 'short',
+              year: 'numeric'
+            });
+          }
+
+          // Kalau gagal parse tapi bukan kosong, tampilkan aslinya
+          return cleaned ? `(invalid: ${cleaned})` : '-';
+        });
+
+        // Gabungkan hasil dengan koma
+        value = formattedParts.join(', ');
       }
+
+
 
       html += `<tr><td>${field.label}</td><td>${value}</td></tr>`;
     });
@@ -241,8 +311,7 @@ const MapApp = () => {
     }
 
     const invalidCountRef = { current: 0 };
-    const newData = [];
-    const newMarkers = [];
+    const mergedDataMap = new Map(); // key: "lat,lon", value: data gabungan
 
     csvData.forEach(row => {
       const normalizedRow = {};
@@ -250,41 +319,62 @@ const MapApp = () => {
         normalizedRow[key.trim()] = row[key];
       });
 
-      newData.push(normalizedRow);
-      const marker = createMarker(normalizedRow, invalidCountRef);
-      if (marker) {
-        newMarkers.push(marker);
+      const lat = normalizeDecimal(normalizedRow.latitude_decimal);
+      const lon = normalizeDecimal(normalizedRow.longitude_decimal);
+
+      if (!isValidCoordinate(lat, lon)) {
+        invalidCountRef.current++;
+        return;
+      }
+
+      const key = `${lat.toFixed(6)},${lon.toFixed(6)}`;
+
+      // Jika koordinat sudah ada, gabungkan datanya
+      if (mergedDataMap.has(key)) {
+        const existing = mergedDataMap.get(key);
+        Object.keys(normalizedRow).forEach(k => {
+          const existingVal = existing[k] || '';
+          const newVal = normalizedRow[k] || '';
+          if (existingVal && newVal && existingVal !== newVal) {
+            // Hindari duplikasi nilai
+            const mergedVals = new Set([...existingVal.split(', '), newVal]);
+            existing[k] = Array.from(mergedVals).join(', ');
+          } else if (!existingVal && newVal) {
+            existing[k] = newVal;
+          }
+        });
+      } else {
+        mergedDataMap.set(key, normalizedRow);
       }
     });
 
-    setAllData(newData);
+    // Setelah semua digabung, buat marker
+    const mergedDataArray = Array.from(mergedDataMap.values());
+    const newMarkers = mergedDataArray.map(data => createMarker(data, invalidCountRef));
+
+    setAllData(mergedDataArray);
     setAllMarkers(newMarkers);
-    setFilteredData(newData);
+    setFilteredData(mergedDataArray);
     setInvalidCount(invalidCountRef.current);
 
-    // Populate filters
-    const siteTypesSet = [...new Set(newData.map(d => d['Site Type']).filter(v => v))];
-    const tenantsSet = [...new Set(newData.map(d => d['Name Of Tenant']).filter(v => v))];
-    const serviceClassesSet = [...new Set(newData.map(d => d['Class Of Service']).filter(v => v))];
-
-    setSiteTypes(siteTypesSet.sort());
-    setTenants(tenantsSet.sort());
-    setServiceClasses(serviceClassesSet.sort());
-
-    // Update map
+    // Update marker di peta
     if (markerClusterGroupRef.current) {
       markerClusterGroupRef.current.clearLayers();
-      markerClusterGroupRef.current.addLayers(newMarkers);
+      markerClusterGroupRef.current.addLayers(newMarkers.filter(Boolean));
     }
 
-    showMessage(`Berhasil memuat ${newMarkers.length} lokasi dari ${csvData.length} baris data`, 'success');
-    
+    showMessage(
+      `Berhasil memuat ${newMarkers.length} marker unik dari ${csvData.length} baris data`,
+      'success'
+    );
+
     if (invalidCountRef.current > 0) {
       setTimeout(() => {
         showMessage(`Peringatan: ${invalidCountRef.current} baris dilewati karena koordinat tidak valid`, 'warning');
       }, 5500);
     }
   };
+
 
   const loadDefaultCSV = () => {
     fetch('/data/sample.csv')
@@ -311,60 +401,54 @@ const MapApp = () => {
         console.error('Error loading default CSV:', error);
       });
   };
-
-  const handleFileUpload = (e) => {
-    const file = e.target.files[0];
-    if (file && window.Papa) {
-      window.Papa.parse(file, {
-        header: true,
-        skipEmptyLines: true,
-        complete: (results) => {
-          if (results.errors.length > 0) {
-            showMessage('Format CSV tidak valid atau terdapat kesalahan parsing', 'error');
-            return;
-          }
-          if (results.data.length === 0) {
-            showMessage('File CSV kosong atau tidak memiliki data', 'warning');
-            return;
-          }
-          processCSVData(results.data);
-        },
-        error: (error) => {
-          showMessage('Gagal memuat file CSV: ' + error.message, 'error');
-        }
-      });
-    }
-  };
-  
-
   // Apply filters
   useEffect(() => {
     if (allData.length === 0) return;
 
     const filtered = allData.filter(data => {
-      const searchMatch = !searchTerm || 
-        (data['Site Name Actual'] || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (data['Address'] || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (data['City'] || '').toLowerCase().includes(searchTerm.toLowerCase());
+      const lower = (v) => (v || '').toString().toLowerCase();
+        // 1. Filter umum (Nama, Kota, Alamat)
+        const searchMatch =
+          !searchTerm ||
+          (data['Site Name Actual'] || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+          (data['Address'] || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+          (data['City'] || '').toLowerCase().includes(searchTerm.toLowerCase());
 
-      const siteTypeMatch = siteTypeFilter === 'all' || data['Site Type'] === siteTypeFilter;
-      const tenantMatch = tenantFilter === 'all' || data['Name Of Tenant'] === tenantFilter;
-      const serviceMatch = serviceFilter === 'all' || data['Class Of Service'] === serviceFilter;
+        // 🧱 Tower ID filter — bisa muncul di beberapa kolom berbeda
+        const towerMatch =
+          !towerIdFilter ||
+          lower(data['Tower ID']).includes(towerIdFilter.toLowerCase()) ||
+          lower(data['Project ID Actual']).includes(towerIdFilter.toLowerCase()) ||
+          lower(data['Site ID DMT']).includes(towerIdFilter.toLowerCase()) ||
+          lower(data['Site ID Tenant']).includes(towerIdFilter.toLowerCase());
 
-      return searchMatch && siteTypeMatch && tenantMatch && serviceMatch;
+        // 🏗️ Site ID filter — kadang muncul di kolom tenant/owner
+        const siteMatch =
+          !siteIdFilter ||
+          lower(data['Site Name Actual']).includes(siteIdFilter.toLowerCase()) ||
+          lower(data['Site Name Owner']).includes(siteIdFilter.toLowerCase()) ||
+          lower(data['Site ID Tenant']).includes(siteIdFilter.toLowerCase()) ||
+          lower(data['Site ID DMT']).includes(siteIdFilter.toLowerCase());
+
+        // 📡 Operator filter
+        const operatorMatch =
+          !operatorFilter ||
+          lower(data['Name Of Tenant']).includes(operatorFilter.toLowerCase()) ||
+          lower(data['Tower Owner']).includes(operatorFilter.toLowerCase());
+        return searchMatch && towerMatch && siteMatch && operatorMatch;
     });
 
     setFilteredData(filtered);
 
-    // Update map markers
     if (markerClusterGroupRef.current) {
       markerClusterGroupRef.current.clearLayers();
-      const markersToDisplay = allMarkers.filter(marker => 
+      const markersToDisplay = allMarkers.filter(marker =>
         filtered.includes(marker.locationData)
       );
       markerClusterGroupRef.current.addLayers(markersToDisplay);
     }
-  }, [searchTerm, siteTypeFilter, tenantFilter, serviceFilter, allData, allMarkers]);
+  }, [searchTerm,towerIdFilter, siteIdFilter, operatorFilter, allData, allMarkers]);
+
 
   const handleReset = () => {
     if (mapInstanceRef.current) {
@@ -403,86 +487,77 @@ const MapApp = () => {
     <div className="map-app-container">
       <header className="map-header">
         <div className="header-content">
-          <h1>🗺️ Peta Interaktif Jawa Timur</h1>
+          <button className="burger-btn" onClick={() => setIsMenuOpen(!isMenuOpen)}>
+            ☰
+          </button>
+          <h1>🗺️ Peta Tower di Jawa Timur</h1>
           <p className="subtitle">Lokasi Tower & Infrastruktur Telekomunikasi</p>
         </div>
       </header>
 
-      <div className="control-panel">
-        <div className="control-row">
-          <div className="control-group">
-            <label htmlFor="searchInput">🔍 Pencarian</label>
-            <input 
-              type="text" 
-              id="searchInput" 
-              placeholder="Cari berdasarkan nama, alamat, atau kota..."
-              className="search-input"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </div>
-
-          <div className="control-group">
-            <label htmlFor="siteTypeFilter">🏢 Tipe Lokasi</label>
-            <select 
-              id="siteTypeFilter" 
-              className="filter-select"
-              value={siteTypeFilter}
-              onChange={(e) => setSiteTypeFilter(e.target.value)}
-              disabled={siteTypes.length === 0}
-            >
-              <option value="all">Semua Tipe</option>
-              {siteTypes.map(type => (
-                <option key={type} value={type}>{type}</option>
-              ))}
-            </select>
-          </div>
-
-          <div className="control-group">
-            <label htmlFor="tenantFilter">📡 Operator</label>
-            <select 
-              id="tenantFilter" 
-              className="filter-select"
-              value={tenantFilter}
-              onChange={(e) => setTenantFilter(e.target.value)}
-              disabled={tenants.length === 0}
-            >
-              <option value="all">Semua Operator</option>
-              {tenants.map(tenant => (
-                <option key={tenant} value={tenant}>{tenant}</option>
-              ))}
-            </select>
-          </div>
-
-          <div className="control-group">
-            <label htmlFor="serviceFilter">⚙️ Kelas Layanan</label>
-            <select 
-              id="serviceFilter" 
-              className="filter-select"
-              value={serviceFilter}
-              onChange={(e) => setServiceFilter(e.target.value)}
-              disabled={serviceClasses.length === 0}
-            >
-              <option value="all">Semua Layanan</option>
-              {serviceClasses.map(service => (
-                <option key={service} value={service}>{service}</option>
-              ))}
-            </select>
-          </div>
+      {/* Drawer (sidebar menu) */}
+      <div className={`side-menu ${isMenuOpen ? 'open' : ''}`}>
+        <div className="side-menu-header">
+          <h3>🔧 Filter</h3>
+          <button className="close-btn" onClick={() => setIsMenuOpen(false)}>✕</button>
         </div>
 
-        <div className="control-row">
+        <div className="control-panel">
+          {/* 🔍 Pencarian Umum */}
           <div className="control-group">
-            <label htmlFor="csvFileInput">📂 Unggah CSV</label>
-            <input 
-              type="file" 
-              id="csvFileInput" 
-              accept=".csv"
-              className="file-input"
-              onChange={handleFileUpload}
+            <label htmlFor="searchInput">🔍 Pencarian Umum</label>
+            <input
+              type="text"
+              id="searchInput"
+              placeholder="Cari berdasarkan nama, kota, atau alamat..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="search-input"
             />
           </div>
 
+          {/* 🔍 Pencarian Tower ID */}
+          <div className="control-group">
+            <label htmlFor="towerIdInput">🧱 Tower ID</label>
+            <input
+              type="text"
+              id="towerIdInput"
+              placeholder="Cari berdasarkan Tower ID..."
+              value={towerIdFilter}
+              onChange={(e) => setTowerIdFilter(e.target.value)}
+              className="search-input"
+            />
+          </div>
+
+          {/* 🏗️ Pencarian Site ID */}
+          <div className="control-group">
+            <label htmlFor="siteIdInput">🏗️ Site ID</label>
+            <input
+              type="text"
+              id="siteIdInput"
+              placeholder="Cari berdasarkan Site ID..."
+              value={siteIdFilter}
+              onChange={(e) => setSiteIdFilter(e.target.value)}
+              className="search-input"
+            />
+          </div>
+
+          {/* 📡 Pencarian Operator */}
+          <div className="control-group">
+            <label htmlFor="operatorInput">📡 Operator</label>
+            <input
+              type="text"
+              id="operatorInput"
+              placeholder="Cari berdasarkan Operator..."
+              value={operatorFilter}
+              onChange={(e) => setOperatorFilter(e.target.value)}
+              className="search-input"
+            />
+          </div>
+
+          <hr />
+
+          {/* Tombol Reset & Ekspor */}
           <div className="control-group">
             <button onClick={handleReset} className="btn-reset">🔄 Reset Peta</button>
           </div>
@@ -490,12 +565,12 @@ const MapApp = () => {
           <div className="control-group">
             <button onClick={handleExport} className="btn-export">💾 Ekspor ke CSV</button>
           </div>
-        </div>
 
-        <div className="status-bar">
-          <span className="status-item">Total: {allData.length}</span>
-          <span className="status-item">Ditampilkan: {filteredData.length}</span>
-          <span className="status-item">Invalid: {invalidCount}</span>
+          <div className="status-bar">
+            <span>Total: {allData.length}</span>
+            <span>Ditampilkan: {filteredData.length}</span>
+            <span>Invalid: {invalidCount}</span>
+          </div>
         </div>
       </div>
 
@@ -508,6 +583,7 @@ const MapApp = () => {
       <div ref={mapRef} className="map-container"></div>
     </div>
   );
+
 };
 
 export default MapApp;
