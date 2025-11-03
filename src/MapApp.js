@@ -22,58 +22,58 @@ const MapApp = () => {
   const [siteIdFilter, setSiteIdFilter] = useState('');
   const [operatorFilter, setOperatorFilter] = useState('');
 
-  const [newData, setNewData] = useState({
-    site_id: "",
-    latitude: "",
-    longitude: ""
-  });
+  // const [newData, setNewData] = useState({
+  //   site_id: "",
+  //   latitude: "",
+  //   longitude: ""
+  // });
 
-  const handleAddData = () => {
-  const { site_id, latitude, longitude } = newData;
+  // const handleAddData = () => {
+  // const { site_id, latitude, longitude } = newData;
 
-  if (!site_id || !latitude || !longitude) {
-    setMessage({ text: "⚠️ Lengkapi semua field sebelum menambah data.", type: "warning" });
-    return;
-  }
+  // if (!site_id || !latitude || !longitude) {
+  //   setMessage({ text: "⚠️ Lengkapi semua field sebelum menambah data.", type: "warning" });
+  //   return;
+  // }
 
-  const lat = parseFloat(latitude);
-  const lon = parseFloat(longitude);
+  // const lat = parseFloat(latitude);
+  // const lon = parseFloat(longitude);
 
-  if (isNaN(lat) || isNaN(lon)) {
-    setMessage({ text: "⚠️ Latitude dan Longitude harus berupa angka.", type: "warning" });
-    return;
-  }
+  // if (isNaN(lat) || isNaN(lon)) {
+  //   setMessage({ text: "⚠️ Latitude dan Longitude harus berupa angka.", type: "warning" });
+  //   return;
+  // }
 
-  // Validasi koordinat
-  if (lat < -90 || lat > 90 || lon < -180 || lon > 180) {
-    setMessage({ text: "⚠️ Koordinat tidak valid.", type: "error" });
-    return;
-  }
+  // // Validasi koordinat
+  // if (lat < -90 || lat > 90 || lon < -180 || lon > 180) {
+  //   setMessage({ text: "⚠️ Koordinat tidak valid.", type: "error" });
+  //   return;
+  // }
 
-  // Buat marker baru
-  const newMarkerData = {
-    "Site ID": site_id,
-    "latitude_decimal": lat,
-    "longitude_decimal": lon,
-    "Site Name Actual": "Manual Entry",
-    "City": "-",
-    "Address": "-",
-  };
+  // // Buat marker baru
+  // const newMarkerData = {
+  //   "Site ID": site_id,
+  //   "latitude_decimal": lat,
+  //   "longitude_decimal": lon,
+  //   "Site Name Actual": "Manual Entry",
+  //   "City": "-",
+  //   "Address": "-",
+  // };
 
-  const marker = window.L.marker([lat, lon])
-    .bindPopup(`<b>${site_id}</b><br>Lat: ${lat}<br>Lon: ${lon}`)
-    .addTo(mapInstanceRef.current);
+  // const marker = window.L.marker([lat, lon])
+  //   .bindPopup(`<b>${site_id}</b><br>Lat: ${lat}<br>Lon: ${lon}`)
+  //   .addTo(mapInstanceRef.current);
 
-    // Tambahkan ke state
-    setAllData((prev) => [...prev, newMarkerData]);
-    setFilteredData((prev) => [...prev, newMarkerData]);
-    setAllMarkers((prev) => [...prev, marker]);
+  //   // Tambahkan ke state
+  //   setAllData((prev) => [...prev, newMarkerData]);
+  //   setFilteredData((prev) => [...prev, newMarkerData]);
+  //   setAllMarkers((prev) => [...prev, marker]);
 
-    setMessage({ text: `✅ Data ${site_id} berhasil ditambahkan.`, type: "success" });
+  //   setMessage({ text: `✅ Data ${site_id} berhasil ditambahkan.`, type: "success" });
 
-    // Reset form
-    setNewData({ site_id: "", latitude: "", longitude: "" });
-  };
+  //   // Reset form
+  //   setNewData({ site_id: "", latitude: "", longitude: "" });
+  // };
 
   // Load Leaflet and dependencies
   useEffect(() => {
