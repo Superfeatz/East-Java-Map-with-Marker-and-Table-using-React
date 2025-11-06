@@ -60,7 +60,7 @@ const FileUploadComponent = ({ onUploadSuccess }) => {
           parseAndLoadCSV(file);
         } else {
           setMessage({ 
-            text: '✅ File berhasil diupload. Untuk Excel, konversi ke CSV terlebih dahulu.', 
+            text: '✅ File berhasil diupload', 
             type: 'success' 
           });
         }
@@ -70,7 +70,7 @@ const FileUploadComponent = ({ onUploadSuccess }) => {
         document.getElementById('fileInput').value = '';
       } else {
         setMessage({ 
-          text: `❌ ${data.message || 'Gagal mengupload file'}`, 
+          text: `❌ ${data.message || 'Gagal mengupload file ke server, saat ini masih disimpan di local storage.'}`, 
           type: 'error' 
         });
       }
