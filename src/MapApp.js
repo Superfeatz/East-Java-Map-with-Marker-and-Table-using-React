@@ -372,8 +372,6 @@ const MapApp = () => {
       }, 5500);
     }
   };
-
-
 /*************  ✨ Windsurf Command ⭐  *************/
 /**
  * Fetches the default CSV data from /data/sample.csv
@@ -508,7 +506,7 @@ const MapApp = () => {
       .then((data) => showMessage(`✅ ${data.message}`, "success"))
       .catch((err) => {
         console.error(err);
-        showMessage("Gagal mengunggah file Excel", "error");
+        showMessage("File saat ini masih diupload di lokal", "error");
       });
   };
 
