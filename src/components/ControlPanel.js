@@ -64,6 +64,20 @@ const ControlPanel = ({
       </div>
     </div>
 
+    <div className="control-group">/* Excel Upload */
+
+          <button onClick={() => document.getElementById("excelInput").click()} className="btn-upload">
+        📂 Upload Excel
+      </button>
+      <input
+        type="file"
+        id="excelInput"
+        accept=".xlsx,.xls"
+        style={{ display: "none" }}
+        onChange={(e) => handleExcelUpload(e.target.files[0])}
+      />
+      </div>
+
     <div className="control-row">
       <button onClick={onReset}>🔄 Reset</button>
       <button onClick={onExport}>💾 Ekspor CSV</button>

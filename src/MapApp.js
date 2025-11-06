@@ -1,8 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import './MapApp.css';
 
-
-
 const MapApp = () => {
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
@@ -376,6 +374,12 @@ const MapApp = () => {
   };
 
 
+/*************  ✨ Windsurf Command ⭐  *************/
+/**
+ * Fetches the default CSV data from /data/sample.csv
+ * and processes it using the processCSVData function.
+
+/*******  3ef2cb1b-d239-4724-a8a5-2bb8938f60db  *******/
   const loadDefaultCSV = () => {
     fetch('/data/sample.csv')
       .then(response => {
@@ -483,6 +487,31 @@ const MapApp = () => {
     }
   };
 
+    const handleExcelUpload = (file) => {
+    if (!file) {
+      showMessage("Tidak ada file yang dipilih", "warning");
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    // Kirim ke backend (misalnya ke server Express di http://localhost:5000/upload)
+    fetch("http://localhost:5000/upload", {
+      method: "POST",
+      body: formData,
+    })
+      .then((res) => {
+        if (!res.ok) throw new Error("Gagal upload file");
+        return res.json();
+      })
+      .then((data) => showMessage(`✅ ${data.message}`, "success"))
+      .catch((err) => {
+        console.error(err);
+        showMessage("Gagal mengunggah file Excel", "error");
+      });
+  };
+
   return (
     <div className="map-app-container">
       <header className="map-header">
@@ -554,6 +583,19 @@ const MapApp = () => {
               className="search-input"
             />
           </div>
+
+          <div className="control-group">
+            <button onClick={() => document.getElementById("excelInput").click()} className="btn-upload">
+              📂 Upload Excel
+            </button>
+            <input
+              type="file"
+              id="excelInput"
+              accept=".xlsx,.xls"
+              style={{ display: "none" }}
+              onChange={(e) => handleExcelUpload(e.target.files[0])}
+            />
+        </div>
 
           <hr />
 

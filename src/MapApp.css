@@ -383,3 +383,19 @@
 .control-panel {
   margin-top: 0.5rem;
 }
+
+
+.btn-upload {
+  background-color: #4caf50;
+  color: white;
+  border: none;
+  padding: 8px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  width: 100%;
+  margin-top: 8px;
+}
+
+.btn-upload:hover {
+  background-color: #43a047;
+}
